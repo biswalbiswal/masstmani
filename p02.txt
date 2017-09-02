@@ -1,0 +1,92 @@
+000100 IDENTIFICATION DIVISION.                                         00010000
+000200 PROGRAM-ID. P23AP02.                                             00020000
+000300 DATA DIVISION.                                                   00030000
+000400 WORKING-STORAGE SECTION.                                         00040000
+000500 01  WS-CA                 PIC X(01).                             00050000
+000600 COPY CUSTREC.                                                    00060000
+000700 COPY P23AS02.                                                    00070000
+000800 COPY DFHAID.                                                     00080000
+000900     EXEC SQL                                                     00090000
+001000        INCLUDE CUSTOMER                                          00100000
+001100     END-EXEC                                                     00110000
+001200     EXEC SQL                                                     00120000
+001300        INCLUDE SQLCA                                             00130000
+001400     END-EXEC.                                                    00140000
+001500**   EXEC SQL                                                     00150000
+001600**      DECLARE ADD_USR CURSOR FOR                                00160000
+001700**      SELECT * FROM T23_USER                                    00170000
+001800**      FOR UPDATE OF UID                                         00180000
+001900**   END-EXEC.                                                    00190000
+002000 LINKAGE SECTION.                                                 00200000
+002100 01  DFHCOMMAREA        PIC X(01).                                00210000
+002200 PROCEDURE DIVISION.                                              00220000
+002300 MAIN-PARA.                                                       00230000
+002400     IF EIBCALEN = ZERO                                           00240000
+002500         PERFORM SEND-ADD                                         00250000
+002600     ELSE                                                         00260000
+002700         MOVE DFHCOMMAREA TO WS-CA                                00270000
+002800         PERFORM RECE-ADD                                         00280000
+002900     END-IF.                                                      00290000
+003000 RETURN-CICS.                                                     00300000
+003100     EXEC CICS RETURN                                             00310000
+003200         TRANSID('P23B')                                          00320000
+003300         COMMAREA(WS-CA)                                          00330000
+003400     END-EXEC.                                                    00340000
+003500 SEND-ADD.                                                        00350000
+003600     MOVE LOW-VALUES TO ADDUO                                     00360000
+003700     PERFORM SEND-MAP.                                            00370000
+003800 SEND-MAP.                                                        00380000
+003900     EXEC CICS SEND                                               00390000
+004000     MAP('ADDU')                                                  00400000
+004100         MAPSET('P23AS02')                                        00410000
+004200         FROM (ADDUO)                                             00420000
+004300         ERASE                                                    00430000
+004400     END-EXEC.                                                    00440000
+004500 RECE-ADD.                                                        00450000
+004600     EVALUATE EIBAID                                              00460000
+004700        WHEN DFHPF3                                               00470000
+004800           EXEC CICS XCTL                                         00480000
+004900              PROGRAM('P23AP01')                                  00490000
+005000           END-EXEC                                               00500000
+005100        WHEN DFHENTER                                             00510000
+005200           PERFORM RECE-MAP                                       00520000
+005300           PERFORM MOVE-PARA                                      00530000
+005400           PERFORM VALIDATION-PARA                                00540000
+005500        WHEN OTHER                                                00550000
+005600           MOVE 'YOU PRESSED A INVALID KEY' TO MESSAGEO           00560000
+005700     END-EVALUATE                                                 00570000
+005800     PERFORM SEND-MAP                                             00580000
+005900     PERFORM RETURN-CICS.                                         00590000
+006000 MOVE-PARA.                                                       00600000
+006100     MOVE CIDI   TO C-ID                                          00610000
+006200     MOVE CPASSI TO C-PASS                                        00620000
+006300     MOVE 'U'    TO C-TYPE                                        00630000
+006400     MOVE 'P'    TO C-STAT                                        00640000
+006500     MOVE CNAMEI TO C-NAME                                        00650000
+006600     MOVE CADDI  TO C-ADD                                         00660000
+006700     MOVE CDOBI  TO C-DOB                                         00670000
+006800     MOVE CDOBI  TO C-ODATE                                       00680000
+006900     MOVE CSALARYI TO C-SAL.                                      00690000
+007000 VALIDATION-PARA.                                                 00700000
+007100     PERFORM INSERT-PARA.                                         00710000
+007200 INSERT-PARA.                                                     00720000
+007300     MOVE CUSTOMER-RECORD TO USER-RECORD                          00730000
+007400*    EXEC SQL                                                     00740000
+007500*       OPEN ADD_USR                                              00750000
+007600*    END-EXEC                                                     00760000
+007700     EXEC SQL                                                     00770000
+007800        INSERT INTO T23_USER VALUES(USER-RECORD)                  00780000
+007900     END-EXEC                                                     00790000
+008000*    EXEC SQL                                                     00800000
+008100*       COMMIT                                                    00810000
+008200*    END-EXEC                                                     00820000
+008300*    EXEC SQL                                                     00830000
+008400*       CLOSE ADD_USR                                             00840000
+008500*    END-EXEC                                                     00850000
+008600     MOVE SQLCODE TO MESSAGEO.                                    00860000
+008700 RECE-MAP.                                                        00870000
+008800     EXEC CICS RECEIVE                                            00880000
+008900         MAP('ADDU')                                              00890000
+009000         MAPSET('P23AS02')                                        00900000
+009100         INTO(ADDUI)                                              00910000
+009200     END-EXEC.                                                    00920000

@@ -1,0 +1,121 @@
+000100 IDENTIFICATION DIVISION.                                         00010000
+000200 PROGRAM-ID. P23AP05.                                             00020000
+000300 DATA DIVISION.                                                   00030000
+000400 WORKING-STORAGE SECTION.                                         00040000
+000500 01  WS-CA.                                                       00050000
+000600     03  WS-ID         PIC X(04).                                 00060000
+000700     03  WS-PASS       PIC X(05).                                 00070000
+000800     03  WS-STAT       PIC X(01).                                 00080000
+000900     03  WS-TYP        PIC X(01).                                 00090000
+001000 01  WS-TEMP           PIC X(04).                                 00100000
+001100 01  WS-ADD            PIC X(15).                                 00110000
+001200 01  WS-NUM            PIC 9(10).                                 00120000
+001300 01  WS-SAL            PIC 9(07)V99.                              00130000
+001400 01  C-SAL-O  REDEFINES WS-SAL PIC X(10).                         00140000
+001500 01  WS-NUM            PIC 9(10)V.                                00150002
+001600 01  WS-NUM-O  REDEFINES WS-NUM PIC X(10).                        00160002
+001700 COPY CUSTREC.                                                    00170000
+001800 COPY P23AS05.                                                    00180000
+001900 COPY DFHAID.                                                     00190000
+002000     EXEC SQL                                                     00200000
+002100        INCLUDE CUSTOMER                                          00210000
+002200     END-EXEC                                                     00220000
+002300     EXEC SQL                                                     00230000
+002400        INCLUDE SQLCA                                             00240000
+002500     END-EXEC.                                                    00250000
+002600     EXEC SQL                                                     00260002
+002700        DECLARE UPD_USR CURSOR                                    00270002
+002800        SELECT * FROM T23_USER                                    00280002
+002900        WHERE UID = :WS-ID                                        00290002
+003000     END-EXEC.                                                    00300002
+003100 LINKAGE SECTION.                                                 00310000
+003200 01  DFHCOMMAREA        PIC X(11).                                00320000
+003300 PROCEDURE DIVISION.                                              00330000
+003400 MAIN-PARA.                                                       00340002
+003500     MOVE DFHCOMMAREA TO WS-CA                                    00350002
+003600     IF EIBCALEN = ZERO                                           00360002
+003700         EXEC CICS XCTL                                           00370002
+003800            PROGRAM('P23AP01')                                    00380002
+003900         END-EXEC                                                 00390002
+004000     ELSE IF WS-TYP = 'U'                                         00400002
+004100         PERFORM SEND-UINQ.                                       00410002
+004200         MOVE 'Y' TO WS-TYP                                       00420002
+004300     ELSE                                                         00430002
+004400         PERFORM RECE-UINQ                                        00440002
+004500     END-IF.                                                      00450002
+004600 RETURN-CICS.                                                     00460000
+004700     EXEC CICS RETURN                                             00470000
+004800         TRANSID('P23E')                                          00480000
+004900         COMMAREA(WS-CA)                                          00490000
+005000     END-EXEC.                                                    00500000
+005100 SEND-UINQ.                                                       00510000
+005200     PERFORM MOVE-USER-DETAILS                                    00520000
+005300     PERFORM SEND-MAP.                                            00530000
+005400 SEND-MAP.                                                        00540000
+005500     EXEC CICS SEND                                               00550000
+005600     MAP('UINQ')                                                  00560000
+005700         MAPSET('P23AS05')                                        00570000
+005800         FROM (UINQO)                                             00580000
+005900         ERASE                                                    00590000
+006000     END-EXEC.                                                    00600000
+006100 RECE-UINQ.                                                       00610002
+006200     PERFORM RECE-MAP                                             00620002
+006300     EVALUATE EIBAID                                              00630002
+006400        WHEN DFHPF3                                               00640002
+006500           MOVE 'U' TO WS-TYP                                     00650002
+006600           EXEC CICS XCTL                                         00660002
+006700              PROGRAM('P23AP03')                                  00670002
+006800              COMMAREA(WS-CA)                                     00680002
+006900          END-EXEC                                                00690002
+007000        WHEN DFHPF4                                               00700002
+007100           PERFORM UPDATE-PARA                                    00710002
+007200        WHEN OTHER                                                00720002
+007300           MOVE 'INVALID KEY PRESSED' TO MESSAGEO                 00730002
+007400     END-EVALUATE                                                 00740002
+007500     PERFORM SEND-MAP.                                            00750002
+007600 RECE-MAP.                                                        00760002
+007700     EXEC CICS RECEIVE                                            00770002
+007800         MAP('UINQ')                                              00780002
+007900         MAPSET('P23AS05')                                        00790002
+008000         INTO(UINQI)                                              00800002
+008100     END-EXEC.                                                    00810002
+008200 MOVE-USER-DETAILS.                                               00820000
+008300     EXEC SQL                                                     00830001
+008400        SELECT * INTO :USER-RECORD                                00840001
+008500          FROM T23_USER                                           00850001
+008600          WHERE UID = :WS-ID                                      00860001
+008700     END-EXEC                                                     00870001
+008800     MOVE USER-RECORD TO CUSTOMER-RECORD                          00880001
+008900     MOVE C-ID TO UIDO                                            00890000
+009000     MOVE C-NAME TO UNAMEO                                        00900000
+009100     MOVE C-ADD  TO UADDO                                         00910000
+009200     MOVE C-DOB  TO UDOBO                                         00920000
+009300     MOVE C-SAL  TO WS-SAL                                        00930000
+009400     MOVE C-SAL-O TO USALARYO                                     00940000
+009500     MOVE C-NUM  TO WS-NUM-O                                      00950002
+009600     MOVE WS-NUM-O TO UNUMO.                                      00960002
+009700 UPDATE-PARA.                                                     00970002
+009800     MOVE UADDI TO WS-ADD                                         00980002
+009900     MOVE UNUMI  TO WS-NUM                                        00990002
+010000     EXEC SQL                                                     01000002
+010100        OPEN UPD_USR                                              01010002
+010200     END-EXEC                                                     01020002
+010300     EXEC SQL                                                     01030002
+010400        FETCH UPD_USR INTO :USER-RECORD                           01040002
+010500     END-EXEC                                                     01050002
+010600     EXEC SQL                                                     01060002
+010700        UPDATE T23_USER SET UADD = :WS-ADD                        01070002
+010800        WHERE CURRENT OF UPD_USR                                  01080002
+010900     END-EXEC                                                     01090002
+011000     EXEC SQL                                                     01100002
+011100        UPDATE T23_USER SET UNUM = :WS-NUM                        01110002
+011200        WHERE CURRENT OF UPD_USR                                  01120002
+011300     END-EXEC                                                     01130002
+011400     EXEC SQL                                                     01140002
+011500        CLOSE UPD_USR                                             01150002
+011600     END-EXEC                                                     01160002
+011700     IF SQLCODE = ZERO                                            01170002
+011800        MOVE 'UPDATE SUCCESSFUL' TO MESSAGEO                      01180002
+011900     ELSE                                                         01190002
+012000        MOVE 'UPDATE NOT SUCCESSFUL' TO MESSAGEO                  01200002
+012100     END-IF.                                                      01210002
